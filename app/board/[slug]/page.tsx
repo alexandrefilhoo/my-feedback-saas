@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UpVoteButton } from "@/components/UpVoteButton";
 import { currentUser } from "@clerk/nextjs/server";
+import Link from "next/link";
 
 type PostItem = typeof posts.$inferSelect & {
   upvoteCount: number;
@@ -15,10 +16,13 @@ type PostItem = typeof posts.$inferSelect & {
 
 export default async function BoardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   const { slug } = await params;
+  const { sort = "top", status = "all" } = await searchParams;
   const clerkUser = await currentUser();
 
   // 1. Get current user ID
@@ -65,6 +69,21 @@ export default async function BoardPage({
           hasVoted,
         };
       });
+
+      //Filter posts based on status if not "all"
+      if (status !== "all") {
+        boardPosts = boardPosts.filter((post) => post.status === status);
+      }
+
+      //Sort posts based on the selected sort option
+      if (sort === "top") {
+        boardPosts.sort((a, b) => b.upvoteCount - a.upvoteCount);
+      } else if (sort === "new") {
+        boardPosts.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+      }
     }
   }
 
@@ -109,6 +128,56 @@ export default async function BoardPage({
             </form>
           </CardContent>
         </Card>
+        {/* Sorting & Status Filter Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+          {/* Status Tabs */}
+          <div className="flex items-center gap-2 text-sm">
+            {[
+              { label: "All", value: "all" },
+              { label: "Under Review", value: "under_review" },
+              { label: "Planned", value: "planned" },
+              { label: "In Progress", value: "in_progress" },
+              { label: "Completed", value: "completed" },
+            ].map((tab) => (
+              <Link
+                key={tab.value}
+                href={`/board/${slug}?sort=${sort}&status=${tab.value}`}
+                className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  status === tab.value
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-200 text-slate-700 hover:bg-slate-300"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <span className="text-muted-foreground">Sort:</span>
+            <Link
+              href={`/board/${slug}?sort=top&status=${status}`}
+              className={`px-2.5 py-1 rounded ${
+                sort === "top"
+                  ? "font-bold text-slate-900 underline"
+                  : "text-slate-500"
+              }`}
+            >
+              Top Voted
+            </Link>
+            <Link
+              href={`/board/${slug}?sort=newest&status=${status}`}
+              className={`px-2.5 py-1 rounded ${
+                sort === "newest"
+                  ? "font-bold text-slate-900 underline"
+                  : "text-slate-500"
+              }`}
+            >
+              Newest
+            </Link>
+          </div>
+        </div>
 
         {/* Posts List */}
         <div className="space-y-4">
@@ -127,12 +196,17 @@ export default async function BoardPage({
               >
                 <UpVoteButton
                   postId={post.id}
-                  slug={slug}
-                  upvoteCount={post.upvoteCount}
-                  hasUpvoted={post.hasVoted}
+                  orgSlug={slug}
+                  initialVoteCount={post.upvoteCount}
+                  hasVoted={post.hasVoted}
                 />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-base">{post.title}</h3>
+                  <Link
+                    href={`/board/${slug}/post/${post.id}`}
+                    className="font-semibold text-base hover:underline"
+                  >
+                    {post.title}
+                  </Link>{" "}
                   <p className="text-sm text-slate-600">{post.description}</p>
                 </div>
               </Card>

@@ -5,6 +5,7 @@ import {
   uuid,
   varchar,
   primaryKey,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 
 // 1. ORGANIZATIONS (Tenants)
@@ -68,3 +69,23 @@ export const upvotes = pgTable(
     pk: primaryKey({ columns: [table.postId, table.userId] }),
   }),
 );
+
+// 6.  Support Status and Categories
+export const statusEnum = pgEnum("status_enum", [
+  "under_review",
+  "in_progress",
+  "completed",
+]);
+
+// 7.  Add comments to Schema.
+export const comments = pgTable("comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id")
+    .references(() => posts.id, { onDelete: "cascade" })
+    .notNull(),
+  authorId: uuid("author_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
